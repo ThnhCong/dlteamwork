@@ -6,7 +6,7 @@ import json
 class DataViewerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("CSV/JSON Data Viewer")
+        self.root.title("Teamwork group1")
         self.root.geometry("1200x900")
 
         self.create_widgets()
