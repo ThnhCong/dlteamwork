@@ -125,33 +125,6 @@ class DataViewerApp:
                 messagebox.showwarning("Missing Input", "Please select a column.")
                 return
 
-            try:
-                if f_type == "text":
-                    filtered = [row for row in self.current_data if val.lower() in str(row.get(col, "")).lower()]
-                elif f_type == "min":
-                    filtered = [row for row in self.current_data if float(row.get(col, float('inf'))) == min(
-                        float(r.get(col)) for r in self.current_data if self._is_float(r.get(col)))]
-                elif f_type == "max":
-                    filtered = [row for row in self.current_data if float(row.get(col, float('-inf'))) == max(
-                        float(r.get(col)) for r in self.current_data if self._is_float(r.get(col)))]
-                else:
-                    filtered = []
-
-                self.display_data(filtered)
-                self.current_data = filtered
-                filter_win.destroy()
-
-            except Exception as e:
-                messagebox.showerror("Filter Error", f"Failed to filter data:\n{e}")
-
-        ttk.Button(filter_win, text="Apply Filter", command=apply_filter).pack(pady=10)
-
-    def _is_float(self, value):
-        try:
-            float(value)
-            return True
-        except:
-            return False
 
     def calculus(self):
         if not self.current_data:
