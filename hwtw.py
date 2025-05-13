@@ -29,6 +29,16 @@ class DataViewerApp:
         file_menu.add_separator()
         file_menu.add_command(label="Close", command=self.close_app)
 
+        edit_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Edit", menu=edit_menu)
+        edit_menu.add_command(label="Remove")
+        edit_menu.add_command(label="Filter")
+        edit_menu.add_command(label="Add")
+
+        calculate_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Calculate", menu=calculate_menu)
+        calculate_menu.add_command(label="Sum")
+        calculate_menu.add_command(label="Mean")
         # Tạo Treeview để hiển thị dữ liệu
         self.tree = ttk.Treeview(self.root, show="headings")
         self.tree.pack(expand=True, fill='both')
