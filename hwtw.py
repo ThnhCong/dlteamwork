@@ -7,7 +7,7 @@ class DataViewerApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Teamwork group1")
-        self.root.geometry("1200x900")
+        self.root.geometry("1300x800")
 
         self.original_data = []  # For undo
         self.current_data = []   # What is currently displayed
@@ -92,17 +92,72 @@ class DataViewerApp:
     def filter_data(self):
         if not self.current_data:
             return
-        keyword = simpledialog.askstring("Filter", "Enter keyword to filter rows:")
-        if not keyword:
-            return
-        filtered = [row for row in self.current_data if any(keyword.lower() in str(value).lower() for value in row.values())]
-        self.display_data(filtered)
-        self.current_data = filtered
+
+        # Get column names
+        columns = list(self.current_data[0].keys())
+
+        # Create filter dialog window
+        filter_win = tk.Toplevel(self.root)
+        filter_win.title("Filter Data")
+
+        tk.Label(filter_win, text="Select column to filter:").pack(pady=(10, 2))
+        selected_column = tk.StringVar()
+        col_combo = ttk.Combobox(filter_win, textvariable=selected_column, values=columns, state='readonly')
+        col_combo.pack(padx=10, pady=5)
+
+        tk.Label(filter_win, text="Select filter type:").pack(pady=(10, 2))
+        filter_type = tk.StringVar()
+        #filter_type.set("Text Match")
+        #ttk.Radiobutton(filter_win, text="Text Match", variable=filter_type, value="text").pack(anchor='w', padx=20)
+        ttk.Radiobutton(filter_win, text="Minimum Value", variable=filter_type, value="min").pack(anchor='w', padx=20)
+        ttk.Radiobutton(filter_win, text="Maximum Value", variable=filter_type, value="max").pack(anchor='w', padx=20)
+
+        #tk.Label(filter_win, text="Enter filter value (if applicable):").pack(pady=(10, 2))
+        value_entry = ttk.Entry(filter_win)
+        value_entry.pack(padx=10, pady=5)
+
+        def apply_filter():
+            col = selected_column.get()
+            f_type = filter_type.get()
+            val = value_entry.get()
+
+            if not col:
+                messagebox.showwarning("Missing Input", "Please select a column.")
+                return
+
+            try:
+                if f_type == "text":
+                    filtered = [row for row in self.current_data if val.lower() in str(row.get(col, "")).lower()]
+                elif f_type == "min":
+                    filtered = [row for row in self.current_data if float(row.get(col, float('inf'))) == min(
+                        float(r.get(col)) for r in self.current_data if self._is_float(r.get(col)))]
+                elif f_type == "max":
+                    filtered = [row for row in self.current_data if float(row.get(col, float('-inf'))) == max(
+                        float(r.get(col)) for r in self.current_data if self._is_float(r.get(col)))]
+                else:
+                    filtered = []
+
+                self.display_data(filtered)
+                self.current_data = filtered
+                filter_win.destroy()
+
+            except Exception as e:
+                messagebox.showerror("Filter Error", f"Failed to filter data:\n{e}")
+
+        ttk.Button(filter_win, text="Apply Filter", command=apply_filter).pack(pady=10)
+
+    def _is_float(self, value):
+        try:
+            float(value)
+            return True
+        except:
+            return False
 
     def calculus(self):
         if not self.current_data:
             return
 
+        # Identify numeric columns
         numeric_cols = {}
         for row in self.current_data:
             for key, value in row.items():
@@ -116,13 +171,37 @@ class DataViewerApp:
             messagebox.showinfo("Calculus", "No numeric data to calculate.")
             return
 
-        results = []
-        for col, nums in numeric_cols.items():
-            total = sum(nums)
-            avg = total / len(nums) if nums else 0
-            results.append(f"{col}: Sum = {total:.2f}, Avg = {avg:.2f}")
+        # Dialog to choose columns
+        column_selection = tk.Toplevel(self.root)
+        column_selection.title("Select Columns for Calculation")
 
-        messagebox.showinfo("Calculus Results", "\n".join(results))
+        tk.Label(column_selection, text="Select one or more numeric columns:").pack(padx=10, pady=5)
+
+        vars = {}
+        for col in numeric_cols:
+            var = tk.BooleanVar(value=True)  # default all selected
+            chk = tk.Checkbutton(column_selection, text=col, variable=var)
+            chk.pack(anchor='w', padx=20)
+            vars[col] = var
+
+        def on_calculate():
+            selected = [col for col, var in vars.items() if var.get()]
+            if not selected:
+                messagebox.showwarning("No Selection", "Please select at least one column.")
+                return
+
+            results = []
+            for col in selected:
+                nums = numeric_cols[col]
+                total = sum(nums)
+                avg = total / len(nums) if nums else 0
+                # ➕ Add more calculations as needed here
+                results.append(f"{col}:\n  Sum = {total:.2f}\n  Avg = {avg:.2f}")
+
+            messagebox.showinfo("Calculation Results", "\n\n".join(results))
+            column_selection.destroy()
+
+        ttk.Button(column_selection, text="Calculate", command=on_calculate).pack(pady=10)
 
     def undo_changes(self):
         self.current_data = self.original_data.copy()
