@@ -19,10 +19,10 @@ class DataViewerApp:
         button_frame = ttk.Frame(self.root)
         button_frame.pack(pady=10)
 
-        # Load, Filter, Calculus, Undo buttons
+        # Buttons
         ttk.Button(button_frame, text="Load CSV or JSON", command=self.load_file).pack(side='left', padx=5)
         ttk.Button(button_frame, text="Filter", command=self.filter_data).pack(side='left', padx=5)
-        ttk.Button(button_frame, text="Calculus", command=self.calculus).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="Calculate", command=self.calculus).pack(side='left', padx=5)
         ttk.Button(button_frame, text="Undo", command=self.undo_changes).pack(side='left', padx=5)
 
         # Treeview Widget
@@ -36,6 +36,11 @@ class DataViewerApp:
         vsb.pack(side='right', fill='y')
         hsb.pack(side='bottom', fill='x')
 
+        # ✅ Add Status Bar
+        self.status_var = tk.StringVar()
+        self.status_var.set("Ready")
+        self.status_bar = ttk.Label(self.root, textvariable=self.status_var, relief='sunken', anchor='w')
+        self.status_bar.pack(side='bottom', fill='x')
     def load_file(self):
         file_path = filedialog.askopenfilename(
             title="Select CSV or JSON file",
