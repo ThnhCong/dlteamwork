@@ -34,6 +34,7 @@ class DataViewerApp:
         edit_menu.add_command(label="Remove")
         edit_menu.add_command(label="Filter")
         edit_menu.add_command(label="Add")
+        edit_menu.add_command(label="Sort")
 
         calculate_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
@@ -45,10 +46,12 @@ class DataViewerApp:
 
         # Thêm thanh trạng thái
         self.status_var = tk.StringVar()
-        self.status_var.set("Ready")
+        self.status_var.set("Baby IT")
         self.status_bar = ttk.Label(self.root, textvariable=self.status_var, relief='sunken', anchor='w')
         self.status_bar.pack(side='bottom', fill='x')
 
+        self.undo_button = tk.Button(self.root, text="Undo")
+        self.undo_button.pack(side="right", padx=5, pady=5)
     def load_file(self):
         file_path = filedialog.askopenfilename(
             title="Select CSV or JSON file",
