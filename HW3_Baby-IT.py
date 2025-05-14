@@ -39,6 +39,7 @@ class DataViewerApp:
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
         calculate_menu.add_command(label="Sum", command=self.sum)
         calculate_menu.add_command(label="Mean", command=self.mean)
+        edit_menu.add_command(label="counts", command=self.counts)
 
         sort_menu =tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Sort", menu=sort_menu)
@@ -91,6 +92,7 @@ class DataViewerApp:
     #add
     #sum
     #mean
+    #counts
     def display_data(self, data):
         self.tree.delete(*self.tree.get_children())
         self.tree["columns"] = []
