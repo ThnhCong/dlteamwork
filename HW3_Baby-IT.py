@@ -34,12 +34,16 @@ class DataViewerApp:
         edit_menu.add_command(label="Remove")
         edit_menu.add_command(label="Filter")
         edit_menu.add_command(label="Add")
-        edit_menu.add_command(label="Sort")
 
         calculate_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
         calculate_menu.add_command(label="Sum")
         calculate_menu.add_command(label="Mean")
+
+        sort_menu =tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Sort", menu=sort_menu)
+        sort_menu.add_command(label="Sort A -> Z")
+        sort_menu.add_command(label="Sort Z -> A")
         # Tạo Treeview để hiển thị dữ liệu
         self.tree = ttk.Treeview(self.root, show="headings")
         self.tree.pack(expand=True, fill='both')
@@ -55,8 +59,7 @@ class DataViewerApp:
     def load_file(self):
         file_path = filedialog.askopenfilename(
             title="Select CSV or JSON file",
-            filetypes=[("CSV files", "*.csv"), ("JSON files", "*.json"), ("All files", "*.*")]
-        )
+            filetypes=[("CSV files", "*.csv"), ("JSON files", "*.json"), ("All files", "*.*")])
         if not file_path:
             return
 
