@@ -31,14 +31,14 @@ class DataViewerApp:
 
         edit_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Edit", menu=edit_menu)
-        edit_menu.add_command(label="Remove")
-        edit_menu.add_command(label="Filter")
+        edit_menu.add_command(label="Remove", command=self.remove_col)
+        edit_menu.add_command(label="Filter", command=self.filter)
         edit_menu.add_command(label="Add")
 
         calculate_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
-        calculate_menu.add_command(label="Sum")
-        calculate_menu.add_command(label="Mean")
+        calculate_menu.add_command(label="Sum", command=self.sum)
+        calculate_menu.add_command(label="Mean", command=self.mean)
 
         sort_menu =tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Sort", menu=sort_menu)
@@ -86,6 +86,10 @@ class DataViewerApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{e}")
 
+    #remove columns
+    #filter
+    #sum
+    #mean
     def display_data(self, data):
         self.tree.delete(*self.tree.get_children())
         self.tree["columns"] = []
