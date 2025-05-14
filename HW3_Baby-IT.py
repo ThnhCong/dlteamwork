@@ -31,7 +31,7 @@ class DataViewerApp:
 
         edit_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Edit", menu=edit_menu)
-        edit_menu.add_command(label="Remove", command=self.remove_col)
+        edit_menu.add_command(label="Remove", command=self.remove)
         edit_menu.add_command(label="Filter", command=self.filter)
         edit_menu.add_command(label="Add", command=self.add)
 
@@ -39,7 +39,7 @@ class DataViewerApp:
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
         calculate_menu.add_command(label="Sum", command=self.sum)
         calculate_menu.add_command(label="Mean", command=self.mean)
-        edit_menu.add_command(label="counts", command=self.counts)
+        calculate_menu.add_command(label="counts", command=self.counts)
 
         sort_menu =tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Sort", menu=sort_menu)
