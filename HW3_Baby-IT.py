@@ -33,7 +33,7 @@ class DataViewerApp:
         menubar.add_cascade(label="Edit", menu=edit_menu)
         edit_menu.add_command(label="Remove", command=self.remove_col)
         edit_menu.add_command(label="Filter", command=self.filter)
-        edit_menu.add_command(label="Add")
+        edit_menu.add_command(label="Add", command=self.add)
 
         calculate_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
@@ -88,6 +88,7 @@ class DataViewerApp:
 
     #remove columns
     #filter
+    #add
     #sum
     #mean
     def display_data(self, data):
