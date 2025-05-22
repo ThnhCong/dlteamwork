@@ -6,11 +6,12 @@ import matplotlib.pyplot as plt
 from collections import Counter, defaultdict
 from datetime import datetime
 import numpy as np # Needed for np.arange for y-axis ticks
+from tkinter.simpledialog import askstring
 
 class DataViewerApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Teamwork group1")
+        self.root.title("Simple data analysis - Pandas")
         self.root.geometry("1300x800")
 
         self.original_data = []
@@ -19,7 +20,47 @@ class DataViewerApp:
         self.deleted_columns = {}
 
         self.create_widgets()
+        self.root.bind('<Control-z>', lambda event: self.undo_last_action())
+        self.root.bind('<F2>', lambda event: self.rename_column())
+        self.root.bind("<Control-o>", lambda event: self.load_file())
+        self.root.bind("<Control-s>", lambda event: self.save_file())
+        self.root.bind('<Control-f>', lambda event: self.filter_data())
 
+    def calculate_count(self):
+        if not self.current_data:
+            messagebox.showinfo("Info", "No data loaded.")
+            return
+
+        col_name = askstring("Count Column", "Enter the column name to count values:")
+        if not col_name:
+            return
+
+        # Kiểm tra xem cột có tồn tại trong dữ liệu hay không
+        if col_name not in self.current_data[0]:
+            messagebox.showwarning("Invalid Column", f"Column '{col_name}' not found.")
+            return
+
+        try:
+            # Đếm số lần xuất hiện của mỗi giá trị trong cột
+            value_counts = Counter(row.get(col_name, None) for row in
+                                   self.current_data)  # Thay '' bằng None để dễ dàng nhận diện giá trị null
+
+            # Nếu không có giá trị nào, hiển thị thông báo lỗi
+            if not value_counts:
+                messagebox.showinfo("Info", "No values found to count.")
+                return
+
+            # Thêm cột count vào dữ liệu (chỉ thêm vào dòng đầu tiên)
+            self.extra_column = f"{col_name}_count"
+            first_row = self.current_data[0]
+            first_row[self.extra_column] = json.dumps(dict(value_counts))  # Lưu trữ dưới dạng chuỗi JSON
+
+            # Cập nhật hiển thị dữ liệu
+            self.display_data(self.current_data)
+            messagebox.showinfo("Count Complete", f"Counted values in column '{col_name}'.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to count values:\n{e}")
     def create_widgets(self):
         menubar = tk.Menu(self.root)
         self.root.config(menu=menubar)
@@ -36,6 +77,7 @@ class DataViewerApp:
         edit_menu.add_command(label="Remove", command=self.clear_result_column)
         edit_menu.add_command(label="Filter", command=self.filter_data)
         edit_menu.add_command(label="Add Column (MonthYear)", command=self.add_month_year_column)
+        edit_menu.add_command(label="Rename", command=self.rename_column)
         edit_menu.add_separator()
         edit_menu.add_command(label="Undo", command=self.undo_last_action)
 
@@ -45,6 +87,7 @@ class DataViewerApp:
         calculate_menu.add_command(label="Mean", command=self.calculate_mean)
         calculate_menu.add_command(label="Min", command=self.calculate_min)
         calculate_menu.add_command(label="Max", command=self.calculate_max)
+        calculate_menu.add_command(label="Count", command=self.calculate_count)
 
         sort_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Sort", menu=sort_menu)
@@ -56,6 +99,7 @@ class DataViewerApp:
         chart_menu.add_command(label="Pie Chart", command=self.create_pie_chart)
         chart_menu.add_command(label="Bar Chart (Custom)", command=self.create_custom_bar_chart)
         chart_menu.add_command(label="Bar Chart (Month/Year Aggregate)", command=self.create_month_year_bar_chart)
+        chart_menu.add_command(label="Line Chart", command=self.create_line_chart)
 
         self.tree = ttk.Treeview(self.root, show="headings")
         self.tree.pack(expand=True, fill='both')
@@ -569,6 +613,81 @@ class DataViewerApp:
         plt.xticks(rotation=70, ha='right')
         plt.tight_layout()
         plt.show()
+
+    def rename_column(self):
+        if not self.current_data:
+            messagebox.showinfo("Info", "No data loaded to rename a column.")
+            return
+
+        old_col = simpledialog.askstring("Rename Column", "Enter the current column name:")
+        if not old_col or old_col not in self.current_data[0]:
+            messagebox.showwarning("Invalid Column", f"Column '{old_col}' not found.")
+            return
+
+        new_col = simpledialog.askstring("Rename Column", f"Enter the new name for column '{old_col}':")
+        if not new_col:
+            messagebox.showinfo("Cancelled", "Renaming cancelled.")
+            return
+
+        for row in self.current_data:
+            row[new_col] = row.pop(old_col, "")
+
+        if self.extra_column == old_col:
+            self.extra_column = new_col
+
+        self.display_data(self.current_data)
+        messagebox.showinfo("Renamed", f"Column '{old_col}' has been renamed to '{new_col}'.")
+
+    def create_line_chart(self):
+        if not self.current_data:
+            messagebox.showinfo("Info", "No data loaded to create a line chart.")
+            return
+
+        x_col = simpledialog.askstring("Line Chart", "Enter the X-axis column:")
+        y_col = simpledialog.askstring("Line Chart", "Enter the Y-axis column:")
+
+        if not x_col or not y_col:
+            return
+
+        if x_col not in self.current_data[0] or y_col not in self.current_data[0]:
+            messagebox.showwarning("Column Not Found", "One or both columns not found.")
+            return
+
+        try:
+            x_vals = []
+            y_vals = []
+
+            for row in self.current_data:
+                x_val = row.get(x_col)
+                y_val = row.get(y_col)
+
+                if x_val is None or y_val is None:
+                    continue
+
+                try:
+                    y_val_float = float(y_val)
+                    x_vals.append(str(x_val))  # Convert x to string for consistent labels
+                    y_vals.append(y_val_float)
+                except ValueError:
+                    continue  # skip if y cannot be converted to float
+
+            if not x_vals or not y_vals:
+                messagebox.showinfo("No Data", "No valid numeric data found for plotting.")
+                return
+
+            plt.figure(figsize=(12, 6))
+            plt.plot(x_vals, y_vals, marker='o', linestyle='-', color='blue')
+            plt.title(f"{y_col} over {x_col}")
+            plt.xlabel(x_col)
+            plt.ylabel(y_col)
+            plt.xticks(rotation=45)
+            plt.grid(True)
+            plt.tight_layout()
+            plt.show()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to plot line chart:\n{e}")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
