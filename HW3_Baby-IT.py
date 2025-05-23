@@ -689,51 +689,7 @@ class DataViewerApp:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to plot line chart:\n{e}")
 
-class IntroWindow(tk.Tk):
-    def __init__(self, delay=3000):
-        super().__init__()
-        self.title("Chào mừng")
-        self.geometry("1300x800")
-        self.overrideredirect(True)  # Ẩn thanh tiêu đề
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
-        window_width = 800
-        window_height = 600
-        position_top = (screen_height // 2) - (window_height // 2)
-        position_left = (screen_width // 2) - (window_width // 2)
 
-        # Đặt vị trí cửa sổ vào chính giữa màn hình
-        self.geometry(f'{window_width}x{window_height}+{position_left}+{position_top}')
-        # Load ảnh nền (Đảm bảo có ảnh này trong thư mục)
-        try:
-            bg_img = Image.open("v.jpg")  # Thay đổi đường dẫn nếu cần
-            bg_img = bg_img.resize((1300, 800), Image.Resampling.LANCZOS)  # Sửa dòng này
-            self.bg = ImageTk.PhotoImage(bg_img)
-
-            # Hiển thị ảnh nền
-            self.canvas = tk.Canvas(self, width=1300, height=800)
-            self.canvas.pack()
-            self.canvas.create_image(0, 0, anchor="nw", image=self.bg)
-            try:
-                playsound('intro.mp3', block=False)  # block=False để không chặn cửa sổ
-            except Exception as sound_e:
-                print(f"Không thể phát âm thanh: {sound_e}")
-            # Hiển thị chữ
-            self.canvas.create_text(400, 500, text="Baby IT", font=("Helvetica", 28, "bold"), fill="red")
-
-            # Tự động chuyển sau vài giây
-            self.after(delay, self.show_main_app)
-        except Exception as e:
-            print(f"Không thể tải ảnh: {e}")
-
-    def show_main_app(self):
-        self.destroy()  # Đóng cửa sổ intro
-        app = DataViewerApp()  # Mở cửa sổ chính
-        app.mainloop()
-
-if __name__ == "__main__":
-    intro = IntroWindow()
-    intro.mainloop()
 if __name__ == "__main__":
     root = tk.Tk()
     app = DataViewerApp(root)
