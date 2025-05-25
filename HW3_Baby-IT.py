@@ -3,12 +3,11 @@ from tkinter import ttk, filedialog, messagebox, simpledialog
 import csv
 import json
 import matplotlib.pyplot as plt
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, deque
 from datetime import datetime
-import numpy as np # Needed for np.arange for y-axis ticks
 from tkinter.simpledialog import askstring
-from PIL import Image, ImageTk
-from playsound import playsound
+import copy
+
 class DataViewerApp:
     def __init__(self, root):
         self.root = root
@@ -18,14 +17,40 @@ class DataViewerApp:
         self.original_data = []
         self.current_data = []
         self.extra_column = None
-        self.deleted_columns = {}
+        # self.deleted_columns = {} # Không còn cần thiết nữa
+
+        self.undo_stack = deque() # Stack để lưu trữ các trạng thái dữ liệu trước đó
+        self.redo_stack = deque() # Stack để lưu trữ các trạng thái dữ liệu đã undo
+        self.max_undo_levels = 50 # Giới hạn số lượng bước undo để tiết kiệm bộ nhớ
 
         self.create_widgets()
         self.root.bind('<Control-z>', lambda event: self.undo_last_action())
+        self.root.bind('<Control-y>', lambda event: self.redo_last_action()) # Thêm bind cho Redo
         self.root.bind('<F2>', lambda event: self.rename_column())
         self.root.bind("<Control-o>", lambda event: self.load_file())
         self.root.bind("<Control-s>", lambda event: self.save_file())
         self.root.bind('<Control-f>', lambda event: self.filter_data())
+
+    def _record_current_state_for_undo(self):
+        if len(self.undo_stack) >= self.max_undo_levels:
+            self.undo_stack.popleft()  # Xóa phần tử cũ nhất nếu stack đầy
+        # Lưu bản sao sâu (deep copy) của dữ liệu hiện tại
+        self.undo_stack.append(copy.deepcopy(self.current_data))
+        self.redo_stack.clear()  # Xóa redo stack khi có hành động mới
+        self._update_undo_redo_button_states()  # Cập nhật trạng thái nút
+
+    def _update_undo_redo_button_states(self):
+        if hasattr(self, 'undo_button'):  # Đảm bảo nút đã được tạo
+            if self.undo_stack:
+                self.undo_button.config(state=tk.NORMAL)
+            else:
+                self.undo_button.config(state=tk.DISABLED)
+
+        if hasattr(self, 'redo_button'):  # Đảm bảo nút đã được tạo
+            if self.redo_stack:
+                self.redo_button.config(state=tk.NORMAL)
+            else:
+                self.redo_button.config(state=tk.DISABLED)
 
     def calculate_count(self):
         if not self.current_data:
@@ -42,6 +67,7 @@ class DataViewerApp:
             return
 
         try:
+            self._record_current_state_for_undo()
             # Đếm số lần xuất hiện của mỗi giá trị trong cột
             value_counts = Counter(row.get(col_name, None) for row in
                                    self.current_data)  # Thay '' bằng None để dễ dàng nhận diện giá trị null
@@ -75,12 +101,13 @@ class DataViewerApp:
 
         edit_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Edit", menu=edit_menu)
-        edit_menu.add_command(label="Remove", command=self.clear_result_column)
+        edit_menu.add_command(label="Remove Column", command=self.clear_result_column)  # Đổi tên cho rõ ràng hơn
         edit_menu.add_command(label="Filter", command=self.filter_data)
         edit_menu.add_command(label="Add Column (MonthYear)", command=self.add_month_year_column)
-        edit_menu.add_command(label="Rename", command=self.rename_column)
+        edit_menu.add_command(label="Rename Column", command=self.rename_column)  # Đổi tên cho rõ ràng hơn
         edit_menu.add_separator()
         edit_menu.add_command(label="Undo", command=self.undo_last_action)
+        edit_menu.add_command(label="Redo", command=self.redo_last_action)
 
         calculate_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Calculate", menu=calculate_menu)
@@ -106,12 +133,14 @@ class DataViewerApp:
         self.tree.pack(expand=True, fill='both')
 
         self.status_var = tk.StringVar()
-        self.status_var.set("Baby IT")
+        self.status_var.set("Ready")  # Trạng thái ban đầu
         self.status_bar = ttk.Label(self.root, textvariable=self.status_var, relief='sunken', anchor='w')
         self.status_bar.pack(side='bottom', fill='x')
 
         self.undo_button = tk.Button(self.root, text="Undo", command=self.undo_last_action)
         self.undo_button.pack(side="right", padx=5, pady=5)
+        self.redo_button = tk.Button(self.root, text="Redo", command=self.redo_last_action)
+        self.redo_button.pack(side="right", padx=5, pady=5)
 
     def load_file(self):
         file_path = filedialog.askopenfilename(
@@ -138,10 +167,14 @@ class DataViewerApp:
                 self.original_data = data.copy()
                 self.current_data = data.copy()
                 self.display_data(data)
+                self._record_current_state_for_undo()  # Ghi lại trạng thái ban đầu sau khi load file
+                self.status_var.set(f"File loaded: {file_path}")
             else:
                 messagebox.showinfo("No Data", "File loaded but contains no data.")
+                self.status_var.set("File loaded but no data.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to load file:\n{e}")
+            self.status_var.set(f"Error loading file: {e}")
 
     def display_data(self, data):
         self.tree.delete(*self.tree.get_children())
@@ -165,6 +198,7 @@ class DataViewerApp:
         if not col_name:
             return
         try:
+            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
             total = sum(float(row.get(col_name, 0)) for row in self.current_data if row.get(col_name))
             self.extra_column = f"{col_name}_sum"
             for idx, row in enumerate(self.current_data):
@@ -172,15 +206,19 @@ class DataViewerApp:
                     del row[self.extra_column]
                 row[self.extra_column] = total if idx == 0 else ""
             self.display_data(self.current_data)
+            self.status_var.set(f"Sum calculated for '{col_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate sum: {e}")
+            self.status_var.set(f"Error calculating sum: {e}")
 
     def calculate_mean(self):
         col_name = simpledialog.askstring("Select Column", "Enter the column name to calculate mean:")
         if not col_name:
             return
         try:
-            values = [float(row[col_name]) for row in self.current_data if row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
+            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
+            values = [float(row[col_name]) for row in self.current_data if
+                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
             if not values:
                 raise ValueError("No valid numeric values found.")
             mean_value = sum(values) / len(values)
@@ -190,15 +228,19 @@ class DataViewerApp:
                     del row[self.extra_column]
                 row[self.extra_column] = mean_value if idx == 0 else ""
             self.display_data(self.current_data)
+            self.status_var.set(f"Mean calculated for '{col_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate mean: {e}")
+            self.status_var.set(f"Error calculating mean: {e}")
 
     def calculate_min(self):
         col_name = simpledialog.askstring("Select Column", "Enter the column name to calculate min:")
         if not col_name:
             return
         try:
-            values = [float(row[col_name]) for row in self.current_data if row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
+            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
+            values = [float(row[col_name]) for row in self.current_data if
+                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
             if not values:
                 raise ValueError("No valid numeric values found.")
             min_value = min(values)
@@ -208,15 +250,19 @@ class DataViewerApp:
                     del row[self.extra_column]
                 row[self.extra_column] = min_value if idx == 0 else ""
             self.display_data(self.current_data)
+            self.status_var.set(f"Min calculated for '{col_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate min: {e}")
+            self.status_var.set(f"Error calculating min: {e}")
 
     def calculate_max(self):
         col_name = simpledialog.askstring("Select Column", "Enter the column name to calculate max:")
         if not col_name:
             return
         try:
-            values = [float(row[col_name]) for row in self.current_data if row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
+            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
+            values = [float(row[col_name]) for row in self.current_data if
+                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
             if not values:
                 raise ValueError("No valid numeric values found.")
             max_value = max(values)
@@ -226,8 +272,10 @@ class DataViewerApp:
                     del row[self.extra_column]
                 row[self.extra_column] = max_value if idx == 0 else ""
             self.display_data(self.current_data)
+            self.status_var.set(f"Max calculated for '{col_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate max: {e}")
+            self.status_var.set(f"Error calculating max: {e}")
 
     def clear_result_column(self):
         col_name = simpledialog.askstring("Clear Column", "Enter column name to remove (leave empty to remove the last result column):")
@@ -240,43 +288,49 @@ class DataViewerApp:
         if not self.current_data or col_name not in self.current_data[0]:
             messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
             return
-
-        current_columns = list(self.current_data[0].keys())
-        try:
-            col_index = current_columns.index(col_name)
-        except ValueError:
-            messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
-            return
-
-        deleted_data = []
+        self._record_current_state_for_undo()
         for row in self.current_data:
-            deleted_data.append(row.pop(col_name, None))
+            row.pop(col_name, None)  # Sử dụng pop để xóa cột
 
-        self.deleted_columns[col_name] = {'data': deleted_data, 'index': col_index}
         if col_name == self.extra_column:
             self.extra_column = None
         self.display_data(self.current_data)
         messagebox.showinfo("Removed", f"Column '{col_name}' has been removed.")
+        self.status_var.set(f"Column '{col_name}' removed.")
+
 
     def undo_last_action(self):
-        if not self.deleted_columns:
-            messagebox.showinfo("Info", "No deleted columns to undo.")
+        if not self.undo_stack:
+            messagebox.showinfo("Info", "No actions to undo.")
             return
 
-        last_col_name = list(self.deleted_columns.keys())[-1]
-        col_info = self.deleted_columns.pop(last_col_name)
-        restored_data_values = col_info['data']
-        original_index = col_info['index']
+            # Lưu trạng thái hiện tại vào redo stack trước khi undo
+        self.redo_stack.append(copy.deepcopy(self.current_data))
 
-        for i, row in enumerate(self.current_data):
-            temp_list = list(row.items())
-
-            temp_list.insert(original_index, (last_col_name, restored_data_values[i]))
-
-            self.current_data[i] = dict(temp_list)
+        # Lấy trạng thái trước đó từ undo stack
+        self.current_data = self.undo_stack.pop()
 
         self.display_data(self.current_data)
-        messagebox.showinfo("Undo", f"Undo successful: column '{last_col_name}' restored.")
+        messagebox.showinfo("Undo", "Last action undone.")
+        self.status_var.set("Last action undone.")
+        self._update_undo_redo_button_states()  # Cập nhật trạng thái nút
+
+    def redo_last_action(self):
+        """Thực hiện lại hành động đã undo."""
+        if not self.redo_stack:
+            messagebox.showinfo("Info", "No actions to redo.")
+            return
+
+        # Lưu trạng thái hiện tại vào undo stack trước khi redo
+        self.undo_stack.append(copy.deepcopy(self.current_data))
+
+        # Lấy trạng thái đã undo từ redo stack
+        self.current_data = self.redo_stack.pop()
+
+        self.display_data(self.current_data)
+        messagebox.showinfo("Redo", "Last action redone.")
+        self.status_var.set("Last action redone.")
+        self._update_undo_redo_button_states()  # Cập nhật trạng thái nút
 
     def filter_data(self):
         if not self.current_data:
@@ -295,6 +349,7 @@ class DataViewerApp:
         filtered_data = [row for row in self.current_data if str(row.get(col_name, "")) == filter_value]
         if not filtered_data:
             messagebox.showinfo("No Match", f"No rows found where '{col_name}' equals '{filter_value}'.")
+            self.status_var.set(f"No match for filter '{col_name}' == '{filter_value}'.")
             return
         self.display_data(filtered_data)
         self.status_var.set(f"Filtered rows where {col_name} == {filter_value}")
@@ -321,8 +376,10 @@ class DataViewerApp:
                 with open(file_path, mode='w', encoding='utf-8') as f:
                     json.dump(self.current_data, f, ensure_ascii=False, indent=4)
             messagebox.showinfo("Success", f"File saved successfully: {file_path}")
+            self.status_var.set(f"File saved: {file_path}")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save file:\n{e}")
+            self.status_var.set(f"Error saving file: {e}")
 
     def close_app(self):
         if messagebox.askyesno("Exit", "Do you want to exit?"):
@@ -335,12 +392,21 @@ class DataViewerApp:
         if not self.current_data or col_name not in self.current_data[0]:
             messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
             return
+
+        self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi sắp xếp
+
         try:
-            self.current_data.sort(key=lambda x: float(x.get(col_name, float('inf')) if str(x.get(col_name, '')).strip() != '' else float('inf')), reverse=not ascending)
+            # Sắp xếp số
+            self.current_data.sort(key=lambda x: float(
+                x.get(col_name, float('inf')) if str(x.get(col_name, '')).strip() != '' else float('inf')),
+                                   reverse=not ascending)
         except ValueError:
-            self.current_data.sort(key=lambda x: x.get(col_name, ""), reverse=not ascending)
+            # Sắp xếp chuỗi nếu không thể chuyển đổi thành số
+            self.current_data.sort(key=lambda x: str(x.get(col_name, "")).lower(),
+                                   reverse=not ascending)  # Sắp xếp không phân biệt chữ hoa chữ thường
         self.display_data(self.current_data)
         messagebox.showinfo("Sort", f"Data sorted by '{col_name}' {'ascending' if ascending else 'descending'}.")
+        self.status_var.set(f"Data sorted by '{col_name}'.")
 
     def create_pie_chart(self):
         if not self.current_data:
@@ -371,21 +437,19 @@ class DataViewerApp:
             plt.title(f"Pie Chart of {col_name}")
             plt.axis('equal')
             plt.show()
+            self.status_var.set(f"Pie chart created for '{col_name}'.")
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create pie chart:\n{e}")
+            self.status_var.set(f"Error creating pie chart: {e}")
 
     def create_custom_bar_chart(self):
-        """
-        Creates a bar chart where the X-axis is user-selected (string, int, float)
-        and the Y-axis is a user-selected numeric column, aggregated by X-axis category.
-        Includes data labels on bars and sets Y-axis ticks to increments of 100.
-        """
         if not self.current_data:
             messagebox.showinfo("Info", "No data loaded to create a chart.")
             return
 
-        x_col_name = simpledialog.askstring("Bar Chart - Categories (X-axis)", "Enter the column name for categories (X-axis, e.g., 'Product', 'Age', 'Score'):")
+        x_col_name = simpledialog.askstring("Bar Chart - Categories (X-axis)",
+                                            "Enter the column name for categories (X-axis, e.g., 'Product', 'Age', 'Score'):")
         if not x_col_name:
             return
 
@@ -393,7 +457,8 @@ class DataViewerApp:
             messagebox.showwarning("Column Not Found", f"Category column '{x_col_name}' not found in the data.")
             return
 
-        y_col_name = simpledialog.askstring("Bar Chart - Values (Y-axis)", "Enter the numeric column name for values (Y-axis, e.g., 'Sales', 'Quantity'):")
+        y_col_name = simpledialog.askstring("Bar Chart - Values (Y-axis)",
+                                            "Enter the numeric column name for values (Y-axis, e.g., 'Sales', 'Quantity'):")
         if not y_col_name:
             return
 
@@ -401,8 +466,8 @@ class DataViewerApp:
             messagebox.showwarning("Column Not Found", f"Value column '{y_col_name}' not found in the data.")
             return
 
-        # Ask the user for the aggregation method
-        aggregation_method = simpledialog.askstring("Aggregation Method", "Enter aggregation method (sum, mean, count). Default is sum:")
+        aggregation_method = simpledialog.askstring("Aggregation Method",
+                                                    "Enter aggregation method (sum, mean, count). Default is sum:")
         if not aggregation_method:
             aggregation_method = "sum"
         aggregation_method = aggregation_method.lower()
@@ -418,26 +483,22 @@ class DataViewerApp:
             value = row.get(y_col_name)
 
             if category is not None and str(category).strip() != '':
-                # Convert category to a string for consistent dictionary key
                 category_key = str(category)
                 try:
                     numeric_val = float(value)
                     aggregated_data[category_key]['values'].append(numeric_val)
                     aggregated_data[category_key]['count'] += 1
                 except (ValueError, TypeError):
-                    # Skip rows where the numeric value is invalid
                     continue
 
         if not aggregated_data:
-            messagebox.showinfo("No Data", "No valid data found for charting after aggregation. Check your column selections and data types.")
+            messagebox.showinfo("No Data",
+                                "No valid data found for charting after aggregation. Check your column selections and data types.")
             return
 
-        # Process aggregated data based on the chosen method
         final_categories = []
         final_values = []
 
-        # Sort categories for consistent plotting order
-        # Attempt to sort numerically first, then alphabetically
         try:
             sorted_keys = sorted(aggregated_data.keys(), key=lambda x: float(x))
         except ValueError:
@@ -451,7 +512,7 @@ class DataViewerApp:
                 if aggregated_data[cat_key]['count'] > 0:
                     final_values.append(sum(aggregated_data[cat_key]['values']) / aggregated_data[cat_key]['count'])
                 else:
-                    final_values.append(0) # Should not happen if count > 0 check is there
+                    final_values.append(0)
             elif aggregation_method == "count":
                 final_values.append(aggregated_data[cat_key]['count'])
 
@@ -467,13 +528,15 @@ class DataViewerApp:
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
         plt.show()
+        self.status_var.set(f"Bar chart created for {y_col_name} by {x_col_name}.")
 
     def add_month_year_column(self):
         if not self.current_data:
             messagebox.showinfo("Info", "No data loaded to add 'MonthYear' column.")
             return
 
-        date_col_name = simpledialog.askstring("Add 'MonthYear' Column", "Enter the column name containing date information (e.g., 'Date', 'TransactionDate'):")
+        date_col_name = simpledialog.askstring("Add 'MonthYear' Column",
+                                               "Enter the column name containing date information (e.g., 'Date', 'TransactionDate'):")
         if not date_col_name:
             return
 
@@ -482,8 +545,11 @@ class DataViewerApp:
             return
 
         if "MonthYear" in self.current_data[0]:
-            if not messagebox.askyesno("Overwrite Column", "'MonthYear' column already exists. Do you want to overwrite it?"):
+            if not messagebox.askyesno("Overwrite Column",
+                                       "'MonthYear' column already exists. Do you want to overwrite it?"):
                 return
+
+        self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thêm cột
 
         new_data_with_monthyear = []
         parsed_count = 0
@@ -516,10 +582,10 @@ class DataViewerApp:
                         except ValueError:
                             pass
                     elif len(date_str) == 6 and date_str.isdigit():
-                         try:
+                        try:
                             date_obj = datetime.strptime(date_str, '%Y%m')
-                         except ValueError:
-                             pass
+                        except ValueError:
+                            pass
 
                     if date_obj:
                         month_year_value = date_obj.year * 100 + date_obj.month
@@ -531,12 +597,15 @@ class DataViewerApp:
             new_data_with_monthyear.append(new_row)
 
         if parsed_count == 0:
-            messagebox.showwarning("No Dates Parsed", "Could not parse any dates from the specified column into MonthYear format. Check your date column format.")
+            messagebox.showwarning("No Dates Parsed",
+                                   "Could not parse any dates from the specified column into MonthYear format. Check your date column format.")
             return
 
         self.current_data = new_data_with_monthyear
         self.display_data(self.current_data)
         messagebox.showinfo("Success", f"'MonthYear' column added successfully. ({parsed_count} dates parsed)")
+        self.status_var.set(f"'MonthYear' column added. {parsed_count} dates parsed.")
+
 
     def create_month_year_bar_chart(self):
         if not self.current_data:
@@ -614,6 +683,7 @@ class DataViewerApp:
         plt.xticks(rotation=70, ha='right')
         plt.tight_layout()
         plt.show()
+        self.status_var.set(f"Month/Year bar chart created for {numeric_col_name}.")
 
     def rename_column(self):
         if not self.current_data:
@@ -629,6 +699,7 @@ class DataViewerApp:
         if not new_col:
             messagebox.showinfo("Cancelled", "Renaming cancelled.")
             return
+        self._record_current_state_for_undo()
 
         for row in self.current_data:
             row[new_col] = row.pop(old_col, "")
@@ -638,6 +709,7 @@ class DataViewerApp:
 
         self.display_data(self.current_data)
         messagebox.showinfo("Renamed", f"Column '{old_col}' has been renamed to '{new_col}'.")
+        self.status_var.set(f"Column '{old_col}' renamed to '{new_col}'.")
 
     def create_line_chart(self):
         if not self.current_data:
@@ -685,9 +757,12 @@ class DataViewerApp:
             plt.grid(True)
             plt.tight_layout()
             plt.show()
+            self.status_var.set(f"Line chart created for {y_col} over {x_col}.")
+
 
         except Exception as e:
             messagebox.showerror("Error", f"Failed to plot line chart:\n{e}")
+            self.status_var.set(f"Error creating line chart: {e}")
 
 
 if __name__ == "__main__":
