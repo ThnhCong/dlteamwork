@@ -304,27 +304,18 @@ class DataViewerApp:
             messagebox.showinfo("Info", "No actions to undo.")
             return
 
-            # Lưu trạng thái hiện tại vào redo stack trước khi undo
         self.redo_stack.append(copy.deepcopy(self.current_data))
-
-        # Lấy trạng thái trước đó từ undo stack
         self.current_data = self.undo_stack.pop()
-
         self.display_data(self.current_data)
         messagebox.showinfo("Undo", "Last action undone.")
         self.status_var.set("Last action undone.")
         self._update_undo_redo_button_states()  # Cập nhật trạng thái nút
 
     def redo_last_action(self):
-        """Thực hiện lại hành động đã undo."""
         if not self.redo_stack:
             messagebox.showinfo("Info", "No actions to redo.")
             return
-
-        # Lưu trạng thái hiện tại vào undo stack trước khi redo
         self.undo_stack.append(copy.deepcopy(self.current_data))
-
-        # Lấy trạng thái đã undo từ redo stack
         self.current_data = self.redo_stack.pop()
 
         self.display_data(self.current_data)
