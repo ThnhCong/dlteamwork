@@ -7,6 +7,7 @@ from collections import Counter, defaultdict, deque
 from datetime import datetime
 from tkinter.simpledialog import askstring
 import copy
+import pandas as pd
 
 class DataViewerApp:
     def __init__(self, root):
@@ -198,15 +199,30 @@ class DataViewerApp:
         if not col_name:
             return
         try:
-            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
-            total = sum(float(row.get(col_name, 0)) for row in self.current_data if row.get(col_name))
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                raise KeyError(f"Column '{col_name}' does not exist.")
+
+            self._record_current_state_for_undo()
+
+            # Chuyển đổi sang số, lỗi sẽ thành NaN
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            total = df[col_name].sum()
+
+            if pd.isna(total):
+                raise ValueError("No valid numeric values to sum.")
+
             self.extra_column = f"{col_name}_sum"
-            for idx, row in enumerate(self.current_data):
-                if self.extra_column in row and idx != 0:
-                    del row[self.extra_column]
-                row[self.extra_column] = total if idx == 0 else ""
+
+            # Chỉ gán giá trị vào dòng đầu tiên, các dòng khác rỗng
+            df[self.extra_column] = ""
+            df.at[0, self.extra_column] = total
+
+            self.current_data = df.to_dict(orient='records')
             self.display_data(self.current_data)
             self.status_var.set(f"Sum calculated for '{col_name}'.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate sum: {e}")
             self.status_var.set(f"Error calculating sum: {e}")
@@ -216,19 +232,30 @@ class DataViewerApp:
         if not col_name:
             return
         try:
-            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
-            values = [float(row[col_name]) for row in self.current_data if
-                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
-            if not values:
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                raise KeyError(f"Column '{col_name}' does not exist.")
+
+            self._record_current_state_for_undo()
+
+            # Chuyển cột sang float, bỏ qua giá trị không hợp lệ
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            mean_value = df[col_name].mean()
+
+            if pd.isna(mean_value):
                 raise ValueError("No valid numeric values found.")
-            mean_value = sum(values) / len(values)
+
             self.extra_column = f"{col_name}_mean"
-            for idx, row in enumerate(self.current_data):
-                if self.extra_column in row and idx != 0:
-                    del row[self.extra_column]
-                row[self.extra_column] = mean_value if idx == 0 else ""
+
+            # Chỉ ghi giá trị vào dòng đầu tiên
+            df[self.extra_column] = ""
+            df.at[0, self.extra_column] = mean_value
+
+            self.current_data = df.to_dict(orient='records')
             self.display_data(self.current_data)
             self.status_var.set(f"Mean calculated for '{col_name}'.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate mean: {e}")
             self.status_var.set(f"Error calculating mean: {e}")
@@ -238,19 +265,29 @@ class DataViewerApp:
         if not col_name:
             return
         try:
-            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
-            values = [float(row[col_name]) for row in self.current_data if
-                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
-            if not values:
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                raise KeyError(f"Column '{col_name}' does not exist.")
+
+            self._record_current_state_for_undo()
+
+            # Chuyển cột thành dạng số, lỗi sẽ bị NaN
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            min_value = df[col_name].min()
+
+            if pd.isna(min_value):
                 raise ValueError("No valid numeric values found.")
-            min_value = min(values)
+
             self.extra_column = f"{col_name}_min"
-            for idx, row in enumerate(self.current_data):
-                if self.extra_column in row and idx != 0:
-                    del row[self.extra_column]
-                row[self.extra_column] = min_value if idx == 0 else ""
+
+            df[self.extra_column] = ""
+            df.at[0, self.extra_column] = min_value
+
+            self.current_data = df.to_dict(orient='records')
             self.display_data(self.current_data)
             self.status_var.set(f"Min calculated for '{col_name}'.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate min: {e}")
             self.status_var.set(f"Error calculating min: {e}")
@@ -260,43 +297,63 @@ class DataViewerApp:
         if not col_name:
             return
         try:
-            self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi thay đổi
-            values = [float(row[col_name]) for row in self.current_data if
-                      row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
-            if not values:
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                raise KeyError(f"Column '{col_name}' does not exist.")
+
+            self._record_current_state_for_undo()
+
+            # Chuyển cột thành dạng số, lỗi sẽ bị NaN
+            df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
+            max_value = df[col_name].max()
+
+            if pd.isna(max_value):
                 raise ValueError("No valid numeric values found.")
-            max_value = max(values)
+
             self.extra_column = f"{col_name}_max"
-            for idx, row in enumerate(self.current_data):
-                if self.extra_column in row and idx != 0:
-                    del row[self.extra_column]
-                row[self.extra_column] = max_value if idx == 0 else ""
+
+            df[self.extra_column] = ""
+            df.at[0, self.extra_column] = max_value
+
+            self.current_data = df.to_dict(orient='records')
             self.display_data(self.current_data)
             self.status_var.set(f"Max calculated for '{col_name}'.")
+
         except Exception as e:
             messagebox.showerror("Error", f"Cannot calculate max: {e}")
             self.status_var.set(f"Error calculating max: {e}")
 
     def clear_result_column(self):
-        col_name = simpledialog.askstring("Clear Column", "Enter column name to remove (leave empty to remove the last result column):")
+        col_name = simpledialog.askstring("Clear Column","Enter column name to remove (leave empty to remove the last result column):")
         if not col_name:
             col_name = self.extra_column
         if not col_name:
             messagebox.showinfo("Info", "No column specified to remove.")
             return
 
-        if not self.current_data or col_name not in self.current_data[0]:
-            messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
-            return
-        self._record_current_state_for_undo()
-        for row in self.current_data:
-            row.pop(col_name, None)  # Sử dụng pop để xóa cột
+        try:
+            df = pd.DataFrame(self.current_data)
 
-        if col_name == self.extra_column:
-            self.extra_column = None
-        self.display_data(self.current_data)
-        messagebox.showinfo("Removed", f"Column '{col_name}' has been removed.")
-        self.status_var.set(f"Column '{col_name}' removed.")
+            if col_name not in df.columns:
+                messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
+                return
+
+            self._record_current_state_for_undo()
+
+            df.drop(columns=[col_name], inplace=True)
+
+            if col_name == self.extra_column:
+                self.extra_column = None
+
+            self.current_data = df.to_dict(orient='records')
+            self.display_data(self.current_data)
+
+            messagebox.showinfo("Removed", f"Column '{col_name}' has been removed.")
+            self.status_var.set(f"Column '{col_name}' removed.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to remove column: {e}")
+            self.status_var.set(f"Error removing column: {e}")
 
 
     def undo_last_action(self):
@@ -327,23 +384,37 @@ class DataViewerApp:
         if not self.current_data:
             messagebox.showinfo("Info", "No data loaded to filter.")
             return
+
         col_name = simpledialog.askstring("Filter Column", "Enter the column name to filter:")
         if not col_name:
             return
-        if col_name not in self.current_data[0]:
-            messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
-            return
-        filter_value = simpledialog.askstring("Filter Value", f"Enter value to filter rows where '{col_name}' equals:")
-        if filter_value is None:
-            return
 
-        filtered_data = [row for row in self.current_data if str(row.get(col_name, "")) == filter_value]
-        if not filtered_data:
-            messagebox.showinfo("No Match", f"No rows found where '{col_name}' equals '{filter_value}'.")
-            self.status_var.set(f"No match for filter '{col_name}' == '{filter_value}'.")
-            return
-        self.display_data(filtered_data)
-        self.status_var.set(f"Filtered rows where {col_name} == {filter_value}")
+        try:
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
+                return
+
+            filter_value = simpledialog.askstring("Filter Value",
+                                                  f"Enter value to filter rows where '{col_name}' equals:")
+            if filter_value is None:
+                return
+
+            # So sánh dưới dạng chuỗi
+            filtered_df = df[df[col_name].astype(str) == filter_value]
+
+            if filtered_df.empty:
+                messagebox.showinfo("No Match", f"No rows found where '{col_name}' equals '{filter_value}'.")
+                self.status_var.set(f"No match for filter '{col_name}' == '{filter_value}'.")
+                return
+
+            self.display_data(filtered_df.to_dict(orient='records'))
+            self.status_var.set(f"Filtered rows where {col_name} == {filter_value}")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to filter data: {e}")
+            self.status_var.set(f"Error filtering data: {e}")
 
     def save_file(self):
         file_path = filedialog.asksaveasfilename(
@@ -380,24 +451,33 @@ class DataViewerApp:
         col_name = simpledialog.askstring("Sort Column", "Enter the column name to sort:")
         if not col_name:
             return
-        if not self.current_data or col_name not in self.current_data[0]:
-            messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
+        if not self.current_data:
+            messagebox.showwarning("No Data", "No data loaded to sort.")
             return
 
-        self._record_current_state_for_undo()  # Ghi lại trạng thái trước khi sắp xếp
-
         try:
-            # Sắp xếp số
-            self.current_data.sort(key=lambda x: float(
-                x.get(col_name, float('inf')) if str(x.get(col_name, '')).strip() != '' else float('inf')),
-                                   reverse=not ascending)
-        except ValueError:
-            # Sắp xếp chuỗi nếu không thể chuyển đổi thành số
-            self.current_data.sort(key=lambda x: str(x.get(col_name, "")).lower(),
-                                   reverse=not ascending)  # Sắp xếp không phân biệt chữ hoa chữ thường
-        self.display_data(self.current_data)
-        messagebox.showinfo("Sort", f"Data sorted by '{col_name}' {'ascending' if ascending else 'descending'}.")
-        self.status_var.set(f"Data sorted by '{col_name}'.")
+            df = pd.DataFrame(self.current_data)
+
+            if col_name not in df.columns:
+                messagebox.showwarning("Not Found", f"Column '{col_name}' not found.")
+                return
+
+            self._record_current_state_for_undo()
+
+            # Thử chuyển sang số, nếu thất bại thì giữ nguyên chuỗi
+            df[col_name] = pd.to_numeric(df[col_name], errors='ignore')
+
+            # Sắp xếp
+            df = df.sort_values(by=col_name, ascending=ascending, na_position='last')
+
+            self.current_data = df.to_dict(orient='records')
+            self.display_data(self.current_data)
+
+            messagebox.showinfo("Sort", f"Data sorted by '{col_name}' {'ascending' if ascending else 'descending'}.")
+            self.status_var.set(f"Data sorted by '{col_name}'.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to sort data: {e}")
+            self.status_var.set(f"Error sorting data: {e}")
 
     def create_pie_chart(self):
         if not self.current_data:
@@ -408,28 +488,30 @@ class DataViewerApp:
         if not col_name:
             return
 
-        if not self.current_data or col_name not in self.current_data[0]:
-            messagebox.showwarning("Column Not Found", f"Column '{col_name}' not found in the data.")
-            return
-
         try:
-            column_values = [row.get(col_name) for row in self.current_data if row.get(col_name) is not None and str(row.get(col_name)).strip() != '']
-            value_counts = Counter(column_values)
+            df = pd.DataFrame(self.current_data)
 
-            labels = list(value_counts.keys())
-            sizes = list(value_counts.values())
+            if col_name not in df.columns:
+                messagebox.showwarning("Column Not Found", f"Column '{col_name}' not found in the data.")
+                return
 
-            if not sizes:
+            # Lọc bỏ giá trị null, rỗng
+            series = df[col_name].dropna().astype(str).str.strip()
+            series = series[series != ""]
+
+            if series.empty:
                 messagebox.showinfo("No Data", "No valid data found in the selected column for charting.")
                 return
 
-            plt.figure(figsize=(8, 8))
-            plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90)
-            plt.title(f"Pie Chart of {col_name}")
-            plt.axis('equal')
-            plt.show()
-            self.status_var.set(f"Pie chart created for '{col_name}'.")
+            value_counts = series.value_counts()
 
+            plt.figure(figsize=(8, 8))
+            plt.pie(value_counts, labels=value_counts.index, autopct='%1.1f%%', startangle=90)
+            plt.title(f"Pie Chart of {col_name}")
+            plt.axis('equal')  # Giữ tỷ lệ tròn
+            plt.show()
+
+            self.status_var.set(f"Pie chart created for '{col_name}'.")
         except Exception as e:
             messagebox.showerror("Error", f"Failed to create pie chart:\n{e}")
             self.status_var.set(f"Error creating pie chart: {e}")
@@ -682,25 +764,37 @@ class DataViewerApp:
             return
 
         old_col = simpledialog.askstring("Rename Column", "Enter the current column name:")
-        if not old_col or old_col not in self.current_data[0]:
-            messagebox.showwarning("Invalid Column", f"Column '{old_col}' not found.")
+        if not old_col:
             return
 
-        new_col = simpledialog.askstring("Rename Column", f"Enter the new name for column '{old_col}':")
-        if not new_col:
-            messagebox.showinfo("Cancelled", "Renaming cancelled.")
-            return
-        self._record_current_state_for_undo()
+        try:
+            df = pd.DataFrame(self.current_data)
 
-        for row in self.current_data:
-            row[new_col] = row.pop(old_col, "")
+            if old_col not in df.columns:
+                messagebox.showwarning("Invalid Column", f"Column '{old_col}' not found.")
+                return
 
-        if self.extra_column == old_col:
-            self.extra_column = new_col
+            new_col = simpledialog.askstring("Rename Column", f"Enter the new name for column '{old_col}':")
+            if not new_col:
+                messagebox.showinfo("Cancelled", "Renaming cancelled.")
+                return
 
-        self.display_data(self.current_data)
-        messagebox.showinfo("Renamed", f"Column '{old_col}' has been renamed to '{new_col}'.")
-        self.status_var.set(f"Column '{old_col}' renamed to '{new_col}'.")
+            self._record_current_state_for_undo()
+
+            df.rename(columns={old_col: new_col}, inplace=True)
+
+            if self.extra_column == old_col:
+                self.extra_column = new_col
+
+            self.current_data = df.to_dict(orient='records')
+            self.display_data(self.current_data)
+
+            messagebox.showinfo("Renamed", f"Column '{old_col}' has been renamed to '{new_col}'.")
+            self.status_var.set(f"Column '{old_col}' renamed to '{new_col}'.")
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to rename column: {e}")
+            self.status_var.set(f"Error renaming column: {e}")
 
     def create_line_chart(self):
         if not self.current_data:
